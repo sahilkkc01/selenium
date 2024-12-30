@@ -5,7 +5,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from flask import Flask, render_template_string, jsonify
+from flask import Flask, jsonify
 
 # Flask app for the HTML interface
 app = Flask(__name__)
@@ -19,16 +19,18 @@ def fetch_trending_topics():
         # Log in to Twitter (manual login if session reuse not implemented)
         driver.get("https://x.com/i/flow/login")
         
-        # Wait for login process if needed (manually log in)
+        # Wait for the relevant elements to load
         WebDriverWait(driver, 30).until(
-            EC.presence_of_element_located((By.XPATH, "//span[contains(@class, 'r-18u37iz')]/span"))
+            EC.presence_of_element_located((By.XPATH, "//div[@data-testid='trend']//div[@dir='ltr']//span//span"))
         )
 
-        # Scrape the trending topics (using the correct XPath to locate the topic span elements)
-        # Find div elements with class 'css-146c3p1' which is common to all trending topic divs
-        trending_elements = driver.find_elements(By.XPATH, "//div[contains(@class, 'css-146c3p1')]/span[contains(@class, 'css-1jxf684') or contains(@class, 'r-poiln3')]")
+        # Scrape the data within the specific span
+        trending_elements = driver.find_elements(
+            By.XPATH,
+            "//div[@data-testid='trend']//div[@dir='ltr']//span//span"
+        )
 
-        # Extract the text of each trending topic
+        # Extract the text of each desired span
         trending_topics = [el.text for el in trending_elements if el.text.strip()]
 
         # Limit to top 5 trends

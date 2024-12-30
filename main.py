@@ -1,5 +1,4 @@
 import time
-import json
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
@@ -11,42 +10,39 @@ from flask import Flask, jsonify
 app = Flask(__name__)
 
 def fetch_trending_topics():
-    # Set up Selenium without proxy
+    # Set up Selenium options
     options = Options()
     driver = webdriver.Chrome(options=options)
 
     try:
-        # Log in to Twitter (manual login if session reuse not implemented)
+        # Step 1: Navigate to the login page
         driver.get("https://x.com/i/flow/login")
         
-        # Wait for the relevant elements to load
+        # Step 2: Wait for redirection to the homepage after manual login
+        print("Please log in manually...")
+        WebDriverWait(driver, 300).until(
+            lambda d: d.current_url == "https://x.com/home"
+        )
+        print("Login successful, redirected to homepage!")
+
+        # Step 3: Redirect to the explore page
+        driver.get("https://x.com/explore/tabs/for-you")
+        
+        # Step 4: Wait for the relevant data to load
         WebDriverWait(driver, 30).until(
-            EC.presence_of_element_located((By.XPATH, "//div[@data-testid='trend']//div[@dir='ltr']//span//span"))
+            EC.presence_of_element_located((By.XPATH, "//div[@data-testid='cellInnerDiv']//div//div//div[@role='link']//div//div[@dir='ltr']//span[@dir='ltr']"))
         )
+        # Step 5: Scrape data from the required hierarchy
+        elements = driver.find_elements(By.XPATH, "//div[@data-testid='cellInnerDiv']//div//div//div[@role='link']//div//div[@dir='ltr']//span[@dir='ltr']")
+        data = [el.text for el in elements if el.text.strip()]
 
-        # Scrape the data within the specific span
-        trending_elements = driver.find_elements(
-            By.XPATH,
-            "//div[@data-testid='trend']//div[@dir='ltr']//span//span"
-        )
-
-        # Extract the text of each desired span
-        trending_topics = [el.text for el in trending_elements if el.text.strip()]
-
-        # Limit to top 5 trends
-        trending_topics = trending_topics[:5]  # Only take the top 5 topics
-
-        # Create a dictionary for trending topics
+        # Step 6: Create a record for the data
         record = {
-            "trend1": trending_topics[0] if len(trending_topics) > 0 else None,
-            "trend2": trending_topics[1] if len(trending_topics) > 1 else None,
-            "trend3": trending_topics[2] if len(trending_topics) > 2 else None,
-            "trend4": trending_topics[3] if len(trending_topics) > 3 else None,
-            "trend5": trending_topics[4] if len(trending_topics) > 4 else None,
+            "trending_data": data[:5],  # Fetch top 5 results
             "datetime": time.strftime("%Y-%m-%d %H:%M:%S"),
         }
 
-        # Write to an HTML file in the root directory
+        # Save to an HTML file
         with open("trending_topics.html", "w") as file:
             file.write(f"""
             <!DOCTYPE html>
@@ -55,13 +51,9 @@ def fetch_trending_topics():
                 <title>Trending Topics</title>
             </head>
             <body>
-                <h1>Trending Topics</h1>
+                <h1>Trending Topicss</h1>
                 <ul>
-                    <li>{record['trend1']}</li>
-                    <li>{record['trend2']}</li>
-                    <li>{record['trend3']}</li>
-                    <li>{record['trend4']}</li>
-                    <li>{record['trend5']}</li>
+                    {''.join(f'<li>{topic}</li>' for topic in record['trending_data'])}
                 </ul>
                 <p>Fetched at: {record['datetime']}</p>
             </body>
@@ -102,7 +94,7 @@ def home():
 
 @app.route('/run-script', methods=['GET'])
 def run_script():
-    # Fetch the trending topics and return as JSON response
+    # Fetch trending topics and return as JSON response
     record = fetch_trending_topics()
     return jsonify(record)
 
